@@ -1,0 +1,48 @@
+--- #Deployment pour minecraft
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-mc
+  namespace: minecraft
+  labels:
+    app: minecraft
+    tier: server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: minecraft
+      tier: server
+  template:
+    metadata:
+      name: pod-minecraft
+      namespace: minecraft
+      labels:
+        app: minecraft
+        tier: server
+    spec:
+      containers:
+        - name: container-minecraft
+          image: openhack/minecraft-server
+          ports:
+            - containerPort: 25565
+          env:
+            - name: EULA
+              value: "TRUE"
+
+--- # Service pour minecraft
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-minecraft
+  namespace: minecraft
+spec:
+  selector:
+    app: minecraft
+    tier: server
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 25565
