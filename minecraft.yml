@@ -40,6 +40,7 @@ kind: Ingress
 metadata:
   name: test-ingress
   annotations:
+    kubernetes.io/ingress.class: "gce"
     kubernetes.io/ingress.global-static-ip-name: kube-game-ip
 spec:
   backend:
