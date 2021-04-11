@@ -1,8 +1,0 @@
-apiVersion: v1
-controller:
-  kind: DaemonSet
-  hostNetwork: true
-  daemonset:
-    useHostPort: true
-  service:
-    type: ClusterIP
