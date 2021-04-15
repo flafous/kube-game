@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-grafana
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: addon-http-application-routing
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: grafana.4157cea156584f3ca367.francecentral.aksapp.io
+      http:
+        paths:
+        - path: /*
+          backend:
+            serviceName: service-grafana
+            servicePort: 3000

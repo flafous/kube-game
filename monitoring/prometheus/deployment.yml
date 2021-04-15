@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-prometheus
+  namespace: monitoring
+  labels: 
+    app: prometheus
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      name: pod-prometheus
+      namespace: monitoring
+      labels:
+        app: prometheus
+        tier: backend
+    spec:
+      serviceAccountName: serviceaccount-prometheus
+      volumes:
+      - name: volume-config-prometheus
+        configMap:
+          name: configmap-prometheus
+          defaultMode: 420
+      - name: volume-storage-prometheus
+        emptyDir: {}
+      containers:
+      - name: container-prometheus
+        image: prom/prometheus:v2.17.1
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/prometheus/"
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: volume-config-prometheus
+          mountPath: /etc/prometheus/
+        - name: volume-storage-prometheus
+          mountPath: /prometheus/
+        resources:
+          limits:
+            cpu: "5.00m"
+            memory: "70Mi"
+          requests:
+            cpu: "2.00m"
+            memory: "35Mi"

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      name: pod-grafana
+      namespace: monitoring
+      labels:
+        app: grafana
+        tier: backend
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:6.2.5
+        ports:
+        - containerPort: 9090
+        resources:
+          limits:
+            cpu: "4000m"
+            memory: "4G"
+          requests:
+            cpu: "1000m"
+            memory: "1G"

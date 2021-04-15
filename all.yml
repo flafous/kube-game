@@ -1,0 +1,304 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: saucisson
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vin-rouge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vive-les-gros-nichons
+---
+apiVersion: kubedb.com/v1alpha2
+kind: MariaDB
+metadata:
+  name: mariadb
+  namespace: vive-les-gros-nichons
+  labels:
+    tier: bdd
+spec:
+  version: "10.5.8"
+  storageType: Durable
+  storage:
+    storageClassName: "standard"
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
+  authSecret:
+    name: mariadb-auth
+  podTemplate:
+    spec:
+      env:
+      - name: MYSQL_DATABASE
+        value: test
+  terminationPolicy: WipeOut
+## delete kubectl delete -n demo mariadb/mariadb
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mariadb-auth
+  namespace: vive-les-gros-nichons
+stringData:
+  username: root
+  password: toor
+type: Opaque
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpmyadmin
+  namespace: vive-les-gros-nichons
+  labels:
+    app: phpmyadmin
+spec:
+  selector:
+    matchLabels:
+      app: phpmyadmin
+  template:
+    metadata:
+      name: pod-phpmyadmin
+      labels:
+        app: phpmyadmin
+    spec:
+      containers:
+        - name: container-phpmyadmin
+          image: phpmyadmin:5.1.0-apache
+          env:
+          - name: PMA_ARBITRARY
+            value: "1"
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "2G"
+              cpu: "100m"
+            limits:
+              memory: "4G"
+              cpu: "1000m"
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: phpmyadmin
+  namespace: vive-les-gros-nichons
+spec:
+  selector:
+    app: phpmyadmin
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-prometheus
+  namespace: vive-les-gros-nichons
+  labels: 
+    app: prometheus
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      name: pod-prometheus
+      namespace: vive-les-gros-nichons
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: serviceaccount-prometheus
+      volumes:
+      - name: volume-config-prometheus
+        configMap:
+          name: configmap-prometheus
+          defaultMode: 420
+      - name: volume-storage-prometheus
+        emptyDir: {}
+      containers:
+      - name: container-prometheus
+        image: prom/prometheus:v2.17.1
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/prometheus/"
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: volume-config-prometheus
+          mountPath: /etc/prometheus/
+        - name: volume-storage-prometheus
+          mountPath: /prometheus/
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: vive-les-gros-nichons
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - protocol: TCP
+    port: 9090
+    targetPort: 9090
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-prometheus
+  labels:
+    name: configmap-prometheus
+  namespace: vive-les-gros-nichons
+data:
+  prometheus.yml: |-
+    global:
+      scrape_interval: 5s
+      evaluation_interval: 5s
+    scrape_configs:
+    - job_name: 'kubernetes-service-endpoints'
+
+      kubernetes_sd_configs:
+      - role: endpoints
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+        action: replace
+        target_label: __scheme__
+        regex: (https?)
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+      - action: labelmap
+        regex: __meta_kubernetes_service_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: kubernetes_name
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clusterrole-prometheus
+  namespace: vive-les-gros-nichons
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: clusterrolebinding-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: clusterrole-prometheus
+subjects:
+- kind: ServiceAccount
+  name: serviceaccount-prometheus
+  namespace: vive-les-gros-nichons
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: serviceaccount-prometheus
+  namespace: vive-les-gros-nichons
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: vive-les-gros-nichons
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      name: pod-grafana
+      namespace: vive-les-gros-nichons
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/graphana:latest
+        ports:
+        - containerPort: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: vive-les-gros-nichons
+spec:
+  selector:
+    app: grafana
+  ports:
+  - protocol: TCP
+    port: 3000
+    targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-fanout
+  namespace: vive-les-gros-nichons
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: kubegame
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /grafana/*
+        backend:
+          serviceName: grafana
+          servicePort: 3000
+      - path: /prometheus/*
+        backend:
+          serviceName: prometheus
+          servicePort: 9090
+      - path: /phpmyadmin/*
+        backend:
+          serviceName: phpmyadmin
+          servicePort: 8080
+---

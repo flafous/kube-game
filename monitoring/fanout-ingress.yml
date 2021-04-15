@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-fanout-monitoring
+  annotations:
+    kubernetes.io/ingress.class: addon-http-application-routing
+    nginx.ingress.kubernetes.io/rewrite-target: /services
+spec:
+  rules:
+  - host: monitoring.4157cea156584f3ca367.francecentral.aksapp.io:80
+  - http:
+      paths:
+      - path: /services/grafana/*
+        backend:
+          serviceName: service-grafana
+          servicePort: 3000
+      - path: /services/prometheus/*
+        backend:
+          serviceName: service-prometheus
+          servicePort: 9090

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: resource-monitoring
+  namespace: monitoring
+spec:
+  hard:
+    requests.cpu: "0.015"
+    requests.memory: "90Mi" 
+    limits.cpu: "0.06"
+    limits.memory: "180Mi"

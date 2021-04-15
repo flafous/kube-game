@@ -11,23 +11,3 @@ services:
     ports:
       - 80:3000
     command: npm start
-    depends_on:
-      - kubegamedb
-
-  kubegamedb:
-    image: mysql:8.0.23
-    environment:
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: toor
-      MYSQL_ROOT_PASSWORD: toor
-    volumes:
-      - ./sql:/var/lib/mysql
-
-  kubegamedb-manager:
-    depends_on:
-      - kubegamedb
-    image: phpmyadmin:5.1.0-apache
-    environment:
-      - PMA_ARBITRARY=1
-    ports:
-      - 8080:80
