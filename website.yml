@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+---
+apiVersion: kubedb.com/v1alpha2
+kind: MariaDB
+metadata:
+  name: mariadb
+  namespace: demo
+  labels:
+    tier: bdd
+spec:
+  version: "10.5.8"
+  storageType: Durable
+  storage:
+    storageClassName: "standard"
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
+  authSecret:
+    name: mariadb-auth
+  podTemplate:
+    spec:
+      env:
+      - name: MYSQL_DATABASE
+        value: test
+  terminationPolicy: WipeOut
+## delete kubectl delete -n demo mariadb/mariadb
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mariadb-auth
+  namespace: demo
+stringData:
+  username: root
+  password: toor
+type: Opaque
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpmyadmin
+  namespace: demo
+  labels:
+    tier: backend
+spec:
+  selector:
+    matchLabels:
+      tier: backend
+  template:
+    metadata:
+      name: pod-phpmyadmin
+      labels:
+        tier: backend
+    spec:
+      containers:
+        - name: container-phpmyadmin
+          image: phpmyadmin:5.1.0-apache
+          env:
+          - name: PMA_ARBITRARY
+            value: "1"
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "2G"
+              cpu: "100m"
+            limits:
+              memory: "4G"
+              cpu: "1000m"
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-ip-phpmyadmin
+  namespace: demo
+spec:
+  selector:
+    tier: backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-phpmyadmin
+  namespace: demo
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: kube-game-ip
+spec:
+  backend:
+    serviceName: cluster-ip-phpmyadmin
+    servicePort: 8080
+## ip needs to be global gcloud compute addresses create kube-game-ip --global

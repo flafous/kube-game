@@ -1,0 +1,5 @@
+kubectl get ns kube-system -o=jsonpath='{.metadata.uid}'
+https://license-issuer.appscode.com/
+helm repo add appscode https://charts.appscode.com/stable/
+helm repo update
+helm install kubedb appscode/kubedb --namespace kube-system --set-file global.license=kubedb-license.txt
